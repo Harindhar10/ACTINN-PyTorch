@@ -32,14 +32,14 @@ def load_model(model, pretrained_path):
     RETURN:
         the updated model
     """
-    weights = torch.load(pretrained_path)
+    weights = torch.load(pretrained_path,weights_only=False)
     trained_epoch = weights['epoch']
     pretrained_dict = weights['Saved_Model'].state_dict()
     model_dict = model.state_dict()
     pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
     model_dict.update(pretrained_dict)
     model.load_state_dict(model_dict)
-    
+
     return model, trained_epoch 
 
 
@@ -67,7 +67,7 @@ def save_checkpoint_classifier(model, epoch, iteration, prefix="", dir_path = No
     torch.save(state, model_out_path)
     print(f"Classifier Checkpoint saved to {model_out_path}")
 
-        
+    
 def evaluate_classifier(valid_data_loader, cf_model, 
                         classification_report:bool = False,
                         device=None):

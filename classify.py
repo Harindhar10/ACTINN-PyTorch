@@ -42,9 +42,9 @@ parser = argparse.ArgumentParser()
 # classifier options
 parser.add_argument('--ClassifierEpochs', type=int, default=50, help='number of epochs to train the classifier, default = 50')
 
-parser.add_argument('--data_type', type=str, default="scanpy", help='type of train/test data, default="scanpy"')
+parser.add_argument('--data_type', type=str, default="csv", help='type of train/test data, default="scanpy"')
 parser.add_argument("--save_iter", type=int, default=1, help="Default=1")
-parser.add_argument('--workers', type=int, help='number of data loading workers', default=24)
+parser.add_argument('--workers', type=int, help='number of data loading workers', default=8)
 parser.add_argument('--batchSize', type=int, default=128, help='input batch size')
 
 parser.add_argument("--start_epoch", default=1, type=int, help="Manual epoch number (useful on restarts)")
@@ -79,6 +79,10 @@ def main():
     if opt.cuda and torch.cuda.is_available():
         device = "cuda";
         print('==> Using GPU (CUDA)')
+
+    elif torch.backends.mps.is_available():
+        device = "mps"
+        print('==> Using GPU (MPS)')
         
     else :
         device = "cpu"
@@ -128,20 +132,20 @@ def main():
     
     elif opt.data_type.lower() == "csv":
         # if we have CSV turned to h5 (pandas dataframe)
-        train_path = "/home/ubuntu/SCRealVAE_68K/ACTINN_Data/68K_h5/train.h5"
-        train_lab_path = "/home/ubuntu/SCRealVAE_68K/ACTINN_Data/68K_h5/train_lab.csv"
+        train_path = "dataset/tma_both_cleaned.h5"
+        train_lab_path = "dataset/tma_both_cleaned_label.txt"
 
-        test_path= "/home/ubuntu/SCRealVAE_68K/ACTINN_Data/68K_h5/test.h5"
-        test_lab_path= "/home/ubuntu/SCRealVAE_68K/ACTINN_Data/68K_h5/test_lab.csv"
+        test_path= "dataset/tma_both_cleaned.h5"
+        test_lab_path= "dataset/tma_both_cleaned_label.txt"
 
-        train_data_loader, valid_data_loader = CSV_IO(train_path, train_lab_path, test_path, test_lab_path,
+        train_data_loader, valid_data_loader, number_of_classes = CSV_IO(train_path, train_lab_path, test_path, test_lab_path,
                                                 batchSize=opt.batchSize,
                                                 workers = opt.workers)
 
         # get input output information for the network
-        inp_size = [batch[0].shape[1] for _, batch in enumerate(train_data_loader, 0)][0];
-        number_of_classes = 9
-        print(number_of_classes)
+        inp_size = [batch[0].shape[1] for _, batch in enumerate(train_data_loader, 0)][0];  
+        #number_of_classes = 9
+        print('number of classes',number_of_classes)
         
     else:
         raise ValueError("Wrong data type, please provide Scanpy/Seurat object or h5 dataframe")
@@ -195,7 +199,9 @@ def main():
                        
         features= Variable(batch).to(device)
         true_labels = Variable(labels).to(device)
-                
+        
+        
+        
         info = f"\n====> Classifier Cur_iter: [{cur_iter}]: Epoch[{cf_epoch}]({iteration}/{len(train_data_loader)}): time: {time.time()-start_time:4.4f}: "
                     
         # =========== Update the classifier ================                  
@@ -227,7 +233,7 @@ def main():
     for epoch in tqdm(range(0, opt.ClassifierEpochs + 1), desc="Classifier Training"): 
         #save models
         if epoch % opt.print_frequency == 0 and epoch != 0:
-            evaluate_classifier(valid_data_loader, cf_model)
+            evaluate_classifier(valid_data_loader, cf_model, device=device)
             save_epoch = (epoch//opt.save_iter)*opt.save_iter   
 #             save_checkpoint_classifier(cf_model, save_epoch, 0, '')
 
